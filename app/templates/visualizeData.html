@@ -1,0 +1,8 @@
+<!doctype html>
+{% extends 'base.html' %}
+<title>Hello from Flask</title>
+{% if data %}
+  <h1>Hello {{ data }}!</h1>
+{% else %}
+  <h1>Hello, World!</h1>
+{% endif %}
