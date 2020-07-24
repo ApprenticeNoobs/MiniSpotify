@@ -5,8 +5,8 @@ import json
 
 
 app = Flask(__name__, instance_relative_config=True)
-dataPath='test/song.json'
-with open(dataPath) as f:
+data_path='test/song.json'
+with open(data_path) as f:
     test_data = json.load(f)
 
 @app.route('/')
@@ -17,25 +17,25 @@ def home():
     return render_template('home.html')
 
 
-@app.route('/allData')
-def allData():
+@app.route('/all_data')
+def all_data():
     '''
     arg: None
     return: the entire json data we loaded
     '''
     return jsonify(test_data)
 
-@app.route('/renderAllData',methods = ['POST','GET'])
-def renderAllData():
+@app.route('/render_all_data',methods = ['POST','GET'])
+def render_all_data():
     '''
     arg: None
     return: a rendered html using the entire json data
     '''
     ### problem right now: the html page is not being rendered while no error is incurred ###
-    dataPath='test/song.json'
-    with open(dataPath) as f:
+    data_path='test/song.json'
+    with open(data_path) as f:
         test_data = json.load(f)
-    return render_template('visualizeData.html',data=test_data)
+    return render_template('visualize_data.html',data=test_data)
 
 @app.route('/user/<name>')
 def user_page(name):
