@@ -1,0 +1,15 @@
+<!doctype html>
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Register</h1>
+  <form method=post action="/submit">
+    <dl>
+      {{ form.csrf_token }}
+      {{ form.name }}
+      {{ form.email }}
+      {{ form.password }}
+    </dl>
+    <p><input type=submit value=Submit>
+  </form>
+{% endblock %}
