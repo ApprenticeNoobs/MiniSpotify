@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 from __future__ import print_function
 from flask import Flask, jsonify, render_template
 from flask import escape, request, url_for
