@@ -6,9 +6,12 @@
   <form method=post action="/submit">
     <dl>
       {{ form.csrf_token }}
-      {{ form.name }}
-      {{ form.email }}
-      {{ form.password }}
+      <label>name:</label><br>
+      {{ form.name }}<br>
+      <label>email:</label><br>
+      {{ form.email }}<br>
+      <label>password:</label><br>
+      {{ form.password }}<br>
     </dl>
     <p><input type=submit value=Submit>
   </form>
