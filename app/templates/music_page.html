@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+<head>
+  <style>
+  table, th, td {
+    border: 1px solid black;
+  }
+  </style>
+</head>
+{% extends 'base.html' %}
+
+{% block content %}
+  <form method=post action="/play_song">
+    <dl>
+      {{ form.csrf_token }}
+      <label>id:</label><br>
+      {{ form.id }}<br>
+    </dl>
+    <p><input type=submit value=Play></p>
+  </form>
+
+  <h1>Table of all songs </h1>
+  <table>
+    <td><a>ID</a></td>
+    <td><a>Song</a></td>
+    <td><a>Artist</a></td>
+    {% for song in songs %}
+      <tr>
+        <td><a>{{song.id}}</a></td>
+        <td><a>{{song.name}}</a></td>
+        <td>{{song.artist}}</td>
+      </tr>
+    {% endfor %}
+  </table>
+{% endblock %}
+
+</html>
