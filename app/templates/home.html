@@ -2,12 +2,22 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h1>haha</h1>
+<h1>Hello </h1>
+{% if form %}
+<h2>{{ form.name }}, You are logged in! Welcome!</h2>
+{% else %}
+<p>Unregistered User, You can use the register button to go to registration page or log in using your credentials</p>
+{% endif %}
   <div class="container">
     <h1>{{title}}</h1>
     <p>{{description}}</p>
   </div>
 <a href="/all_data"><input type="button" value="get all data"></a>
 <a href="/render_all_data"><input type="button" value="get rendered data"></a>
+{% if not form %}
 <a href="/register"><input type="button" value="register"></a>
+<a href="/login"><input type="button" value="login"></a>
+{% else %}
+<a href="/home"><input type="button" value="logout"></a>
+{% endif %}
 {% endblock %}

@@ -1,18 +1,21 @@
+#!/usr/bin/python3
 from __future__ import print_function
 from flask import Flask, jsonify, render_template
 from flask import escape, request, url_for
+from flask import flash, redirect
 import json
 import os
 from flask_sqlalchemy import SQLAlchemy
 
-from app.models import MyForm
-
+from app.models import MyForm, LoginForm
+from app.config import Config
 
 app = Flask(__name__, instance_relative_config=True)
 
-SECRET_KEY = os.urandom(32)
-app.config['SECRET_KEY'] = SECRET_KEY
-app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///test.db"
+# SECRET_KEY = os.urandom(32)
+# app.config['SECRET_KEY'] = SECRET_KEY
+# app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///test.db"
+app.config.from_object(Config)
 db = SQLAlchemy(app)
 
 
@@ -55,6 +58,12 @@ def register():
     form = MyForm()
     return render_template('register.html', form=form)
 
+@app.route('/login', methods=('GET', 'POST'))
+def login():
+    form = LoginForm()
+    if(form.validate_on_submit()):
+        return render_template('home.html',form=form)
+    return render_template('login.html',form=form)
 
 @app.route('/submit', methods=('GET', 'POST'))
 def submit():
@@ -80,7 +89,7 @@ def submit():
 @app.route('/index')
 def home():
     """load home template"""
-    return render_template('home.html')
+    return render_template('home.html',form=None)
 
 
 @app.route('/all_data')
