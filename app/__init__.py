@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 from __future__ import print_function
 from flask import Flask, render_template
-from flask import escape, request, url_for, redirect
+from flask import request, url_for, redirect, Response
 import json
 from flask_sqlalchemy import SQLAlchemy
 
@@ -15,7 +15,8 @@ import io
 
 app = Flask(__name__, instance_relative_config=True)
 app.config.from_object(Config)
-app.static_folder = 'static'
+# https://stackoverflow.com/questions/13772884/css-problems-with-flask-web-app
+app.static_folder = 'static' 
 db = SQLAlchemy(app)
 
 MAX_LARGE_BINARY_LENGTH_IN_BYTES = 64000000
@@ -144,6 +145,39 @@ def admin():
     print(users)
     return render_template('admin.html', users=users)
 
+
+# Example request url:
+# http://127.0.0.1:5000/create_user?name=Randy%20%email=randy@gmail.com%20%password=12345
+@app.route('/user', methods=['GET'])
+def create_user():
+    # NOTE: we must handle each type of request method with if/else statements.
+    # Otherwise we get a 405 method call permission denied error message.
+    # https://stackoverflow.com/questions/34853033/flask-post-the-method-is-not-allowed-for-the-requested-url
+    if request.method == 'GET':
+        print('calling GET method')
+        name = request.args.get('name')
+        email = request.args.get('email')
+        password = request.args.get('password')
+        is_successful = add_user_to_db(name, email, password)
+        if is_successful:
+            print('Successfully added user to db')
+            return Response(
+                "{'response': user was successfully created}",
+                status=201, mimetype='application/json'
+            )
+        # Reference: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/406
+        else:
+            print('Failed to add user to db')
+            return Response(
+                "{'response': username already exists}",
+                status=406, mimetype='application/json'
+            )
+    else:
+        print(f'Request method is not supported: {request.method}')
+        return Response(
+            "{'response:': request method not supported}",
+            status=406, mimetype='application/json'
+        )
 
 
 if __name__ == '__main__':
