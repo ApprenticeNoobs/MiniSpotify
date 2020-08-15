@@ -16,7 +16,7 @@ import io
 app = Flask(__name__, instance_relative_config=True)
 app.config.from_object(Config)
 # https://stackoverflow.com/questions/13772884/css-problems-with-flask-web-app
-app.static_folder = 'static' 
+app.static_folder = 'static'
 db = SQLAlchemy(app)
 
 MAX_LARGE_BINARY_LENGTH_IN_BYTES = 64000000
@@ -70,6 +70,31 @@ def add_user_to_db(name, email, password) -> bool:
     except Exception:
         return False
 # END: Utility functions #
+
+
+def delete_user_from_db(email) -> bool:
+    print("Trying to delete user from db...")
+    try:
+        user = User.query.filter_by(email=email).first()
+        db.session.delete(user)
+        db.session.commit()
+        return True
+    except Exception:
+        return False
+
+
+def update_user_email_in_db(name, password, new_email) -> bool:
+    print("Trying updating user...")
+    # NOTE: we don't authenticate password for now. Just check if user exists
+    # in db and if so we can delete and re-insert the user with the new email.
+    try:
+        user = User.query.filter_by(name=name, password=password).first()
+        delete_user_from_db(user.email)
+    except Exception:
+        return False
+
+    add_user_to_db(name=name, email=new_email, password=password)
+    return True
 
 
 @app.route('/register', methods=('GET', 'POST'))
@@ -146,38 +171,97 @@ def admin():
     return render_template('admin.html', users=users)
 
 
-# Example request url:
-# http://127.0.0.1:5000/create_user?name=Randy%20%email=randy@gmail.com%20%password=12345
-@app.route('/user', methods=['GET'])
-def create_user():
-    # NOTE: we must handle each type of request method with if/else statements.
-    # Otherwise we get a 405 method call permission denied error message.
-    # https://stackoverflow.com/questions/34853033/flask-post-the-method-is-not-allowed-for-the-requested-url
-    if request.method == 'GET':
-        print('calling GET method')
-        name = request.args.get('name')
-        email = request.args.get('email')
-        password = request.args.get('password')
-        is_successful = add_user_to_db(name, email, password)
-        if is_successful:
-            print('Successfully added user to db')
+def user_api_get():
+    print('calling GET method')
+    name = request.args.get('name')
+    email = request.args.get('email')
+    password = request.args.get('password')
+    is_successful = add_user_to_db(name=name, email=email, password=password)
+    if is_successful:
+        print('Successfully added user to db')
+        return Response(
+            "{'response': user was successfully created}",
+            status=201, mimetype='application/json'
+        )
+    # Reference: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/406
+    else:
+        print('Failed to add user to db')
+        return Response(
+            "{'response': username already exists}",
+            status=406, mimetype='application/json'
+        )
+
+
+def user_api_delete():
+    print('callling DELETE')
+    email = request.args.get('email')
+    is_deleted = delete_user_from_db(email=email)
+    if is_deleted:
+        print('Successfully deleted user from db')
+        return Response(
+            "{'response': user was successfully deleted!}",
+            status=201, mimetype='application/json'
+        )
+    else:
+        print('Failed to add user to db')
+        return Response(
+            "{'response': user with that email does not exist}",
+            status=406, mimetype='application/json'
+        )
+
+
+def user_api_put():
+    print('calling PUT')
+    name = request.args.get('name')
+    password = request.args.get('password')
+    new_email = request.args.get('email')
+
+    is_updatable = True
+    if is_updatable:
+        is_updated = update_user_email_in_db(name=name, password=password, new_email=new_email)
+        if is_updated:
+            print('Successfully updated email in db')
             return Response(
-                "{'response': user was successfully created}",
+                "{'response': user email was successfully updated}",
                 status=201, mimetype='application/json'
             )
-        # Reference: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/406
         else:
-            print('Failed to add user to db')
+            print('Failed to update email in db')
             return Response(
-                "{'response': username already exists}",
+                "{'response': user name does not exist - failed to update email}",
                 status=406, mimetype='application/json'
             )
     else:
+        print('User email is not updatable')
+        return Response(
+            "{'response': user password is incorrect - failed to update email}",
+            status=406, mimetype='application/json'
+        )
+
+
+# Example request url:
+# http://127.0.0.1:5000/create_user?name=Randy%20%email=randy@gmail.com%20%password=12345
+@app.route('/user', methods=['GET', 'DELETE', 'PUT'])
+def user_api():
+    """Handle each type of request method with:
+        1) if/else statements OR
+        2) dictionary that maps to function names (since python has no switch keyword)
+    Otherwise we get a 405 method call permission denied error message.
+
+    https://stackoverflow.com/questions/34853033/
+    """
+    api_methods_dict = {
+        'GET': user_api_get,
+        'DELETE': user_api_delete,
+        'PUT': user_api_put
+    }
+    if request.method not in api_methods_dict.keys():
         print(f'Request method is not supported: {request.method}')
         return Response(
             "{'response:': request method not supported}",
             status=406, mimetype='application/json'
         )
+    return api_methods_dict[request.method]()
 
 
 if __name__ == '__main__':
