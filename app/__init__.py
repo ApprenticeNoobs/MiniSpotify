@@ -137,31 +137,12 @@ def play_song():
     return redirect(url_for('all_data'))
 
 
-@app.route('/render_all_data', methods=['POST', 'GET'])
-def render_all_data():
-    '''
-    arg: None
-    return: a rendered html using the entire json data
-    '''
-    data_path = 'test/song.json'
-    with open(data_path) as f:
-        test_data = json.load(f)
-    return render_template('visualize_data.html', data=test_data)
+@app.route('/admin')
+def admin():
+    users = User.query.all()
+    print(users)
+    return redirect(url_for('home'))
 
-
-@app.route('/user/<name>')
-def user_page(name):
-    return "User: %s" % escape(name)
-
-
-@app.route('/test')
-def test_url_for():
-    print(url_for('hello'))
-    print(url_for('user_page', name="Haosong"))
-    print(url_for('user_page', name="Zishi"))
-    print(url_for("test_url_for"))
-    print(url_for('test_url_for', num=2))
-    return "Test page"
 
 
 if __name__ == '__main__':
