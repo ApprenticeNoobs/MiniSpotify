@@ -5,7 +5,7 @@ from flask import request, url_for, redirect, Response
 import json
 from flask_sqlalchemy import SQLAlchemy
 
-from app.models import MyForm, LoginForm, PlaySongForm
+from app.models import MyForm, LoginForm, PlaySongForm, SubmitSongForm
 from app.config import Config
 
 from pydub import AudioSegment
@@ -19,7 +19,7 @@ app.config.from_object(Config)
 app.static_folder = 'static'
 db = SQLAlchemy(app)
 
-MAX_LARGE_BINARY_LENGTH_IN_BYTES = 64000000
+# MAX_LARGE_BINARY_LENGTH_IN_BYTES = 64000000
 
 
 # NOTE: if we put db in a separate file, then it has to import app and the file
@@ -41,7 +41,7 @@ class Song(db.Model):
     name = db.Column(db.String(80), unique=True, nullable=False)
     artist = db.Column(db.String(120), unique=False, nullable=False)
     mp3_file = db.Column(
-        db.LargeBinary(MAX_LARGE_BINARY_LENGTH_IN_BYTES), unique=False, nullable=False
+        db.LargeBinary(app.config['MAX_CONTENT_LENGTH']), unique=False, nullable=False
     )
 
     def __repr__(self):
@@ -65,6 +65,19 @@ def add_user_to_db(name, email, password) -> bool:
     try:
         user = User(name=name, email=email, password=password)
         db.session.add(user)
+        db.session.commit()
+        return True
+    except Exception:
+        return False
+
+
+def add_song_to_db(name, artist, mp3_file) -> bool:
+    """Return `False` if unable to insert entry to Song table due to bad input
+    or some referential integrity violation. Otherwise return `True`."""
+    print(f"Trying adding song: {name} by artist: {artist} to database")
+    try:
+        song = Song(name=name, artist=artist, mp3_file=mp3_file)
+        db.session.add(song)
         db.session.commit()
         return True
     except Exception:
@@ -128,6 +141,35 @@ def submit():
             password=request.form['password']
         )
     return render_template('/status.html', status=status)
+
+
+@app.route('/upload_song', methods=('GET', 'POST'))
+def upload_song():
+    form = MyForm()
+    return render_template('upload_song.html', form=form)
+
+
+# TODO: convert uploaded mp3 file into bytes and implement the upload song db.
+@app.route('/submit_song', methods=('GET', 'POST'))
+def submit_song():
+    """Submit a new mp3 file to uploaded to the website.
+    """
+    form = SubmitSongForm(
+        name=request.form['name'],
+        artist=request.form['artist'],
+        mp3_file=request.form['mp3_file']
+    )
+    status = form.validate()
+    if status:
+        status = add_song_to_db(
+            name=request.form['name'],
+            artist=request.form['artist'],
+            mp3_file=request.form['mp3_file']
+        )
+    else:
+        print('Failed to upload')
+        print(f'Checking type of mp3_file uploaded: {type(request.form["mp3_file"])}')
+    return redirect(url_for('all_data'))
 
 
 @app.route('/')
