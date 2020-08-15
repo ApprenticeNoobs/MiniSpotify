@@ -15,6 +15,7 @@ import io
 
 app = Flask(__name__, instance_relative_config=True)
 app.config.from_object(Config)
+app.static_folder = 'static'
 db = SQLAlchemy(app)
 
 MAX_LARGE_BINARY_LENGTH_IN_BYTES = 64000000
@@ -141,7 +142,7 @@ def play_song():
 def admin():
     users = User.query.all()
     print(users)
-    return redirect(url_for('home'))
+    return render_template('admin.html', users=users)
 
 
 
