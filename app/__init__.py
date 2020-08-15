@@ -167,12 +167,10 @@ def play_song():
 @app.route('/admin')
 def admin():
     users = User.query.all()
-    print(users)
     return render_template('admin.html', users=users)
 
 
 def user_api_get():
-    print('calling GET method')
     name = request.args.get('name')
     email = request.args.get('email')
     password = request.args.get('password')
@@ -193,7 +191,6 @@ def user_api_get():
 
 
 def user_api_delete():
-    print('callling DELETE')
     email = request.args.get('email')
     is_deleted = delete_user_from_db(email=email)
     if is_deleted:
@@ -211,7 +208,6 @@ def user_api_delete():
 
 
 def user_api_put():
-    print('calling PUT')
     name = request.args.get('name')
     password = request.args.get('password')
     new_email = request.args.get('email')
