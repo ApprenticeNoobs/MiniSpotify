@@ -1,0 +1,17 @@
+<!doctype html>
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Submit a new song</h1>
+  <form method=post action="/submit_song" enctype="multipart/form-data">
+    <dl>
+      {{ form.csrf_token }}
+      <label>name:</label><br>
+      {{ form.name }}<br>
+      <label>artist:</label><br>
+      {{ form.email }}<br>
+    </dl>
+    <p><input type="file" name="file"></p>
+    <p><input type="submit" value="Upload"></p>
+  </form>
+{% endblock %}

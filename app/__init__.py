@@ -1,11 +1,11 @@
 #!/usr/bin/python3
 from __future__ import print_function
 from flask import Flask, render_template
-from flask import escape, request, url_for, redirect
+from flask import request, url_for, redirect, Response
 import json
 from flask_sqlalchemy import SQLAlchemy
 
-from app.models import MyForm, LoginForm, PlaySongForm
+from app.models import MyForm, LoginForm, PlaySongForm, SubmitSongForm
 from app.config import Config
 
 from pydub import AudioSegment
@@ -15,9 +15,11 @@ import io
 
 app = Flask(__name__, instance_relative_config=True)
 app.config.from_object(Config)
+# https://stackoverflow.com/questions/13772884/css-problems-with-flask-web-app
+app.static_folder = 'static'
 db = SQLAlchemy(app)
 
-MAX_LARGE_BINARY_LENGTH_IN_BYTES = 64000000
+# MAX_LARGE_BINARY_LENGTH_IN_BYTES = 64000000
 
 
 # NOTE: if we put db in a separate file, then it has to import app and the file
@@ -39,7 +41,7 @@ class Song(db.Model):
     name = db.Column(db.String(80), unique=True, nullable=False)
     artist = db.Column(db.String(120), unique=False, nullable=False)
     mp3_file = db.Column(
-        db.LargeBinary(MAX_LARGE_BINARY_LENGTH_IN_BYTES), unique=False, nullable=False
+        db.LargeBinary(app.config['MAX_CONTENT_LENGTH']), unique=False, nullable=False
     )
 
     def __repr__(self):
@@ -67,7 +69,45 @@ def add_user_to_db(name, email, password) -> bool:
         return True
     except Exception:
         return False
+
+
+def add_song_to_db(name, artist, mp3_file) -> bool:
+    """Return `False` if unable to insert entry to Song table due to bad input
+    or some referential integrity violation. Otherwise return `True`."""
+    print(f"Trying adding song: {name} by artist: {artist} to database")
+    try:
+        song = Song(name=name, artist=artist, mp3_file=mp3_file)
+        db.session.add(song)
+        db.session.commit()
+        return True
+    except Exception:
+        return False
 # END: Utility functions #
+
+
+def delete_user_from_db(email) -> bool:
+    print("Trying to delete user from db...")
+    try:
+        user = User.query.filter_by(email=email).first()
+        db.session.delete(user)
+        db.session.commit()
+        return True
+    except Exception:
+        return False
+
+
+def update_user_email_in_db(name, password, new_email) -> bool:
+    print("Trying updating user...")
+    # NOTE: we don't authenticate password for now. Just check if user exists
+    # in db and if so we can delete and re-insert the user with the new email.
+    try:
+        user = User.query.filter_by(name=name, password=password).first()
+        delete_user_from_db(user.email)
+    except Exception:
+        return False
+
+    add_user_to_db(name=name, email=new_email, password=password)
+    return True
 
 
 @app.route('/register', methods=('GET', 'POST'))
@@ -101,6 +141,35 @@ def submit():
             password=request.form['password']
         )
     return render_template('/status.html', status=status)
+
+
+@app.route('/upload_song', methods=('GET', 'POST'))
+def upload_song():
+    form = MyForm()
+    return render_template('upload_song.html', form=form)
+
+
+# TODO: convert uploaded mp3 file into bytes and implement the upload song db.
+@app.route('/submit_song', methods=('GET', 'POST'))
+def submit_song():
+    """Submit a new mp3 file to uploaded to the website.
+    """
+    form = SubmitSongForm(
+        name=request.form['name'],
+        artist=request.form['artist'],
+        mp3_file=request.form['mp3_file']
+    )
+    status = form.validate()
+    if status:
+        status = add_song_to_db(
+            name=request.form['name'],
+            artist=request.form['artist'],
+            mp3_file=request.form['mp3_file']
+        )
+    else:
+        print('Failed to upload')
+        print(f'Checking type of mp3_file uploaded: {type(request.form["mp3_file"])}')
+    return redirect(url_for('all_data'))
 
 
 @app.route('/')
@@ -137,31 +206,100 @@ def play_song():
     return redirect(url_for('all_data'))
 
 
-@app.route('/render_all_data', methods=['POST', 'GET'])
-def render_all_data():
-    '''
-    arg: None
-    return: a rendered html using the entire json data
-    '''
-    data_path = 'test/song.json'
-    with open(data_path) as f:
-        test_data = json.load(f)
-    return render_template('visualize_data.html', data=test_data)
+@app.route('/admin')
+def admin():
+    users = User.query.all()
+    return render_template('admin.html', users=users)
 
 
-@app.route('/user/<name>')
-def user_page(name):
-    return "User: %s" % escape(name)
+def user_api_get():
+    name = request.args.get('name')
+    email = request.args.get('email')
+    password = request.args.get('password')
+    is_successful = add_user_to_db(name=name, email=email, password=password)
+    if is_successful:
+        print('Successfully added user to db')
+        return Response(
+            "{'response': user was successfully created}",
+            status=201, mimetype='application/json'
+        )
+    # Reference: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/406
+    else:
+        print('Failed to add user to db')
+        return Response(
+            "{'response': username already exists}",
+            status=406, mimetype='application/json'
+        )
 
 
-@app.route('/test')
-def test_url_for():
-    print(url_for('hello'))
-    print(url_for('user_page', name="Haosong"))
-    print(url_for('user_page', name="Zishi"))
-    print(url_for("test_url_for"))
-    print(url_for('test_url_for', num=2))
-    return "Test page"
+def user_api_delete():
+    email = request.args.get('email')
+    is_deleted = delete_user_from_db(email=email)
+    if is_deleted:
+        print('Successfully deleted user from db')
+        return Response(
+            "{'response': user was successfully deleted!}",
+            status=201, mimetype='application/json'
+        )
+    else:
+        print('Failed to add user to db')
+        return Response(
+            "{'response': user with that email does not exist}",
+            status=406, mimetype='application/json'
+        )
+
+
+def user_api_put():
+    name = request.args.get('name')
+    password = request.args.get('password')
+    new_email = request.args.get('email')
+
+    is_updatable = True
+    if is_updatable:
+        is_updated = update_user_email_in_db(name=name, password=password, new_email=new_email)
+        if is_updated:
+            print('Successfully updated email in db')
+            return Response(
+                "{'response': user email was successfully updated}",
+                status=201, mimetype='application/json'
+            )
+        else:
+            print('Failed to update email in db')
+            return Response(
+                "{'response': user name does not exist - failed to update email}",
+                status=406, mimetype='application/json'
+            )
+    else:
+        print('User email is not updatable')
+        return Response(
+            "{'response': user password is incorrect - failed to update email}",
+            status=406, mimetype='application/json'
+        )
+
+
+# Example request url:
+# http://127.0.0.1:5000/create_user?name=Randy%20%email=randy@gmail.com%20%password=12345
+@app.route('/user', methods=['GET', 'DELETE', 'PUT'])
+def user_api():
+    """Handle each type of request method with:
+        1) if/else statements OR
+        2) dictionary that maps to function names (since python has no switch keyword)
+    Otherwise we get a 405 method call permission denied error message.
+
+    https://stackoverflow.com/questions/34853033/
+    """
+    api_methods_dict = {
+        'GET': user_api_get,
+        'DELETE': user_api_delete,
+        'PUT': user_api_put
+    }
+    if request.method not in api_methods_dict.keys():
+        print(f'Request method is not supported: {request.method}')
+        return Response(
+            "{'response:': request method not supported}",
+            status=406, mimetype='application/json'
+        )
+    return api_methods_dict[request.method]()
 
 
 if __name__ == '__main__':
